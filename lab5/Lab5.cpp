@@ -30,33 +30,38 @@
 
 #define PI 3.14159265
 
-using namespace std;
-using namespace glm;
+ using namespace std;
+ using namespace glm;
 
 //flag and ID to toggle on and off the shader
-int shade = 1;
-int ShadeProg;
+ int shade = 1;
+ int ShadeProg;
 
 //Handles to the shader data
-GLint h_aPosition;
-GLint h_uColor;
-GLint h_uModelMatrix;
-GLint h_uViewMatrix;
-GLint h_uProjMatrix;
-GLuint CubeBuffObj, CIndxBuffObj, RIndxBuffObj, GrndBuffObj, GIndxBuffObj, NormalBuffObj;
-int g_CiboLen, g_GiboLen, g_RiboLen;
+ GLint h_aPosition;
+ GLint h_uColor;
+ GLint h_uModelMatrix;
+ GLint h_uViewMatrix;
+ GLint h_uProjMatrix;
+ GLuint CubeBuffObj, CIndxBuffObj, RIndxBuffObj, GrndBuffObj, GIndxBuffObj, NormalBuffObj;
+ int g_CiboLen, g_GiboLen, g_RiboLen;
 
 /* globals to control positioning and window size */
-static float g_width, g_height;
-float g_tx = 0;
-float g_ty = -3.0;
-float g_tz = 0;
+ static float g_width, g_height;
+ float g_tx = 0;
+ float g_ty = -3.0;
+ float g_tz = 0;
+
+ float g_upperAngle = 0;
+ float g_upperChange = 1;
+ float g_lowerAngle = 0;
+ float g_lowerChange = 2;
 
 /*camera controls - do not change for Lab 5 */
-glm::vec3 g_trans(-5, 0, -5);
-float g_angle = 45;
+ glm::vec3 g_trans(0, 0, -20);
+ float g_angle = 0;
 
-static const float g_groundY = -3.0;      // y coordinate of the ground
+static const float g_groundY = -10.0;      // y coordinate of the ground
 static const float g_groundSize = 100.0;   // half the ground length
 
 //declare a matrix stack
@@ -102,28 +107,52 @@ static void initGround() {
    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idx), idx, GL_STATIC_DRAW);
 }
 
+void timerCB(int ms) {
+   if(g_upperAngle > 45)
+      g_upperChange = -1;
+   if(g_upperAngle < 0)
+      g_upperChange = 1;
+   
+   if(g_lowerAngle > 90)
+      g_lowerChange = -2;
+   if(g_lowerAngle < 0)
+      g_lowerChange = 2;
+
+   g_upperAngle += g_upperChange;   
+   g_lowerAngle += g_lowerChange;
+
+   glutTimerFunc(25, timerCB, 25);
+
+   cout << g_upperAngle << endl;
+   glutPostRedisplay();
+}
+
+void displayCB() {
+   glutSwapBuffers();
+}
+
 /* intialize the cube data */
 static void initCube() {
 
    float CubePos[] = {
-      -0.5, -0.5, -0.5, /*back face 5 verts :0 */
-      -0.5, 0.5, -0.5,
-      0.5, 0.5, -0.5,
-      0.5, -0.5, -0.5,
+      -1, -0.5, -0.5, /*back face 5 verts :0 */
+      -1, 0.5, -0.5,
+      1, 0.5, -0.5,
+      1, -0.5, -0.5,
       0.0, 0.7, -0.5,
-      -0.5, -0.5, 0.5, /*front face 5 verts :5*/
-      -0.5, 0.5, 0.5,
-      0.5, 0.5, 0.5,
-      0.5, -0.5, 0.5,
+      -1, -0.5, 0.5, /*front face 5 verts :5*/
+      -1, 0.5, 0.5,
+      1, 0.5, 0.5,
+      1, -0.5, 0.5,
       0.0, 0.7, 0.5,
-      -0.5, -0.5, 0.5, /*left face 4 verts :10*/
-      -0.5, -0.5, -.5,
-      -0.5, 0.5, -0.5,
-      -0.5, 0.5, 0.5,
-      0.5, -0.5, 0.5, /*right face 4 verts :14*/
-      0.5, -0.5, -.5,
-      0.5, 0.5, -0.5,
-      0.5, 0.5, 0.5,
+      -1, -0.5, 0.5, /*left face 4 verts :10*/
+      -1, -0.5, -.5,
+      -1, 0.5, -0.5,
+      -1, 0.5, 0.5,
+      1, -0.5, 0.5, /*right face 4 verts :14*/
+      1, -0.5, -.5,
+      1, 0.5, -0.5,
+      1, 0.5, 0.5,
    };
 
    unsigned short idx[] = {
@@ -138,7 +167,7 @@ static void initCube() {
 
    };
    
-   unsigned short ridx[] = {
+/*   unsigned short ridx[] = {
       1, 4, 6,
       1, 4, 2,
       4, 9, 6,
@@ -146,7 +175,7 @@ static void initCube() {
       2, 4, 7,
       4, 9, 7,
    };
-
+*/
    g_CiboLen = 24;
    glGenBuffers(1, &CubeBuffObj);
    glBindBuffer(GL_ARRAY_BUFFER, CubeBuffObj);
@@ -156,11 +185,11 @@ static void initCube() {
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, CIndxBuffObj);
    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idx), idx, GL_STATIC_DRAW);
    
-   g_RiboLen = 18;
+ /*  g_RiboLen = 18;
    glGenBuffers(1, &RIndxBuffObj);
    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, RIndxBuffObj);
    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(ridx), ridx, GL_STATIC_DRAW);
-
+*/
 }
 
 void InitGeom() {
@@ -241,6 +270,46 @@ void Initialize ()          // Any GL Init Code
 
 }
 
+void DrawArm(void)
+{
+   glColor3f(1.0, 0.0, 0.0);
+   glRecti(0, 0, 6, 2);
+}
+
+void DrawBody(void)
+{
+   glColor3f(1.0, 0.0, 0.0);
+   glRecti(-2, -8, 2, 2);
+}
+void DrawHead(void)
+{
+   glColor3f(1.0, 0.0, 0.0);
+   glRecti(-1, -1, 1, 1);
+   glRecti(-2, 1, 2, 1.25);
+   glRecti(-0.75, 1, 0.75, 2);
+}
+
+void DrawHand(void)
+{
+   glColor3f(1.0, 0.0, 0.0);
+   glRecti(0, 0, 2, 2);
+   glRecti(0.5, 2, 1, 3);
+   //glRecti(2, 0, 4, 0.5);
+   //glRecti(2, 0.75, 4, 1.25);
+   glRecti(2, 1.5, 4, 2);
+}
+
+void DrawLeftHand(void)
+{
+   glColor3f(1.0, 0.0, 0.0);
+   glRecti(0, 0, 2, 2);
+   glRecti(0.5, 0, 1, -1);
+   //glRecti(2, 0, 4, 0.5);
+   //glRecti(2, 0.75, 4, 1.25);
+   glRecti(2, 0, 4, 0.5);
+}
+
+
 /* Main display function */
 void Draw (void)
 {
@@ -279,62 +348,78 @@ void Draw (void)
    glBindBuffer(GL_ARRAY_BUFFER, CubeBuffObj);
    safe_glVertexAttribPointer(h_aPosition, 3, GL_FLOAT, GL_FALSE, 0, 0);
    // bind ibo
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, CIndxBuffObj);
+   glUniform3f(h_uColor, 0.6, 0.6, 0.6);
+      // draw!
+   //lDrawElements(GL_TRIANGLES, g_CiboLen, GL_UNSIGNED_SHORT, 0);
 
+   //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, RIndxBuffObj);
 
-   time_t timer;
-   srand((int)time(&timer));
-   float width = 0;
-   float r, yr;
-
-   for (int i=0; i < 5; i++) {
-      r = (rand()%600)*(1.0/600) + 1;
-      yr = (rand()%600)*(1.0/600) + 1;
+   ModelTrans.pushMatrix();
+      ModelTrans.translate(vec3(-4, 0, 0));
+      ModelTrans.rotate(g_upperAngle+180, vec3(0, 0, -1));
+      ModelTrans.translate(vec3(0, -2, 0));
       ModelTrans.pushMatrix();
-      /* set up where to draw the box */
-      ModelTrans.translate(vec3(g_tx+width+(r*0.25), g_ty+(yr*0.25), g_tz-(r*0.25)));
-      ModelTrans.scale(r*0.5, yr*0.5, r*0.5);
-      SetModel();
-      /* set the color in the shader */
-      
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, CIndxBuffObj);
-      glUniform3f(h_uColor, r-1, yr-1, r*yr-2);
-      // draw!
-      glDrawElements(GL_TRIANGLES, g_CiboLen, GL_UNSIGNED_SHORT, 0);
-      
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, RIndxBuffObj);
-      glUniform3f(h_uColor, 0.6, 0.6, 0.6);
-      // draw!
-      glDrawElements(GL_TRIANGLES, g_RiboLen, GL_UNSIGNED_SHORT, 0);
+         ModelTrans.translate(vec3(5, 1, 0));
+         ModelTrans.rotate(g_lowerAngle, vec3(0, 0, -1));
+         ModelTrans.translate(vec3(-1, -1, 0));
+         ModelTrans.pushMatrix();
+            ModelTrans.translate(vec3(5, 1, 0));
+            //ModelTrans.rotate(g_lowerAngle*8, vec3(0, 0, -1));
+            ModelTrans.translate(vec3(-1, -1, 0));
+            safe_glUniformMatrix4fv(h_uModelMatrix, value_ptr(ModelTrans.modelViewMatrix)); 
+            DrawLeftHand();
+         ModelTrans.popMatrix();
+         safe_glUniformMatrix4fv(h_uModelMatrix, value_ptr(ModelTrans.modelViewMatrix)); 
+         DrawArm();
       ModelTrans.popMatrix();
-      width += (r*0.5);
-      
-   }
+      safe_glUniformMatrix4fv(h_uModelMatrix, value_ptr(ModelTrans.modelViewMatrix)); 
+      DrawArm();
+   ModelTrans.popMatrix();
+
+
+   ModelTrans.pushMatrix();
+      ModelTrans.translate(vec3(0, 0, 0));
+      ModelTrans.rotate(g_upperAngle, vec3(0, 0, 1));
+      ModelTrans.translate(vec3(0, 0, 0));
+      ModelTrans.pushMatrix();
+         ModelTrans.translate(vec3(5, 1, 0));
+         ModelTrans.rotate(g_lowerAngle, vec3(0, 0, 1));
+         ModelTrans.translate(vec3(-1, -1, 0));
+         ModelTrans.pushMatrix();
+            ModelTrans.translate(vec3(5, 1, 0));
+            ModelTrans.rotate(g_lowerAngle*8, vec3(0, 0, 1));
+            ModelTrans.translate(vec3(-1, -1, 0));
+            safe_glUniformMatrix4fv(h_uModelMatrix, value_ptr(ModelTrans.modelViewMatrix)); 
+            DrawHand();
+         ModelTrans.popMatrix();
+         safe_glUniformMatrix4fv(h_uModelMatrix, value_ptr(ModelTrans.modelViewMatrix)); 
+         DrawArm();
+      ModelTrans.popMatrix();
+      safe_glUniformMatrix4fv(h_uModelMatrix, value_ptr(ModelTrans.modelViewMatrix)); 
+      DrawArm();
+   ModelTrans.popMatrix();
    
-   float zwidth = 0;
-   for (int i=0; i < 5; i++) {
-      r = (rand()%600)*(1.0/600) + 1;
-      yr = (rand()%600)*(1.0/600) + 1;
-      ModelTrans.pushMatrix();
-      /* set up where to draw the box */
-      ModelTrans.translate(vec3(g_tx+width+(r*0.25), g_ty+(yr*0.25), g_tz+zwidth+(r*0.25)));
-      ModelTrans.scale(r*0.5, yr*0.5, r*0.5);
-      ModelTrans.rotate(90, vec3(0,1,0));
-      SetModel();
-      /* set the color in the shader */
-      
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, CIndxBuffObj);
-      glUniform3f(h_uColor, r-1, yr-1, r*yr-2);
-      // draw!
-      glDrawElements(GL_TRIANGLES, g_CiboLen, GL_UNSIGNED_SHORT, 0);
-      
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, RIndxBuffObj);
-      glUniform3f(h_uColor, 0.6, 0.6, 0.6);
-      // draw!
-      glDrawElements(GL_TRIANGLES, g_RiboLen, GL_UNSIGNED_SHORT, 0);
+   ModelTrans.pushMatrix();
+   ModelTrans.translate(vec3(-2, 0, 0));
+      safe_glUniformMatrix4fv(h_uModelMatrix, value_ptr(ModelTrans.modelViewMatrix)); 
+      DrawBody();
       ModelTrans.popMatrix();
-      zwidth += (r*0.5);
-      
-   }
+   ModelTrans.pushMatrix();
+      ModelTrans.translate(vec3(-2, 3, 0));
+      safe_glUniformMatrix4fv(h_uModelMatrix, value_ptr(ModelTrans.modelViewMatrix)); 
+      DrawHead();
+   ModelTrans.popMatrix();
+
+   //ModelTrans.pushMatrix();
+      /* set up where to draw the box */
+   //ModelTrans.translate(vec3(g_tx+width+(r*0.25), g_ty+(yr*0.25), g_tz-(r*0.25)));
+   //ModelTrans.scale(r*0.5, yr*0.5, r*0.5);
+   //SetModel();
+      /* set the color in the shader */
+
+      // draw!
+   //ModelTrans.popMatrix();
 
    // Disable the attributes used by our shader
    safe_glDisableVertexAttribArray(h_aPosition);
@@ -358,19 +443,19 @@ void ReshapeGL (int width, int height)
 void keyboard(unsigned char key, int x, int y ){
    switch( key ) {
       /* M and N key move the object in x */
-   case 'a':
+      case 'a':
       g_tx -= .3;
       break;
-   case 'd':
+      case 'd':
       g_tx += .3;
       break;
-   case 's':
+      case 's':
       g_ty -= .3;
       break;
-   case 'w':
+      case 'w':
       g_ty += .3;
       break;
-   case 'q': case 'Q' :
+      case 'q': case 'Q' :
       exit( EXIT_SUCCESS );
       break;
    }
@@ -388,6 +473,7 @@ int main( int argc, char *argv[] )
    glutReshapeFunc( ReshapeGL );
    glutDisplayFunc( Draw );
    glutKeyboardFunc( keyboard );
+   timerCB(50);
    Initialize();
 
    //test the openGL version
